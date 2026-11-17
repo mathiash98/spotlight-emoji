@@ -100,6 +100,16 @@ final class EmojiIndex: ObservableObject {
     private var isUpdating = false
     static let index = CSSearchableIndex(name: "SpotlightEmojiCatalog")
     static let domain = "no.mathias.SpotlightEmoji.catalog"
+    static func recordUse(of record: EmojiRecord, at date: Date) {
+        let attributes = CSSearchableItemAttributeSet(contentType: .text)
+        attributes.lastUsedDate = date
+        let item = CSSearchableItem(uniqueIdentifier: record.id, domainIdentifier: domain, attributeSet: attributes)
+        item.isUpdate = true
+        index.indexSearchableItems([item]) { error in
+            if let error { NSLog("Could not update emoji usage: %@", error.localizedDescription) }
+        }
+    }
+
     static func thumbnail(_ symbol: String) -> Data? {
         let image = NSImage(size: NSSize(width: 128, height: 128))
         image.lockFocus()
@@ -126,18 +136,22 @@ final class EmojiIndex: ObservableObject {
         guard !isUpdating else { return }
         isUpdating = true
         defer { isUpdating = false }
-        if UserDefaults.standard.integer(forKey: "catalogVersion") == 6 {
+        if UserDefaults.standard.integer(forKey: "catalogVersion") == 7 {
             status = "\(EmojiCatalog.records.count) emoji · Also searchable in Spotlight"
             return
         }
         do {
             // Remove prior entity associations, not just their visible attributes.
             // Every indexed result now activates through the same native user activity.
-            try await Self.index.deleteSearchableItems(withDomainIdentifiers: [Self.domain])
+            let previousVersion = UserDefaults.standard.integer(forKey: "catalogVersion")
+            if previousVersion < 6 {
+                try await Self.index.deleteSearchableItems(withDomainIdentifiers: [Self.domain])
+            }
             var batch: [CSSearchableItem] = []
             for (offset, record) in EmojiCatalog.records.enumerated() {
                 let attributes = CSSearchableItemAttributeSet(contentType: .text)
                 attributes.title = record.displayName
+                attributes.alternateNames = record.shortcodes.flatMap { [":" + $0, ":" + $0 + ":"] }
                 attributes.displayName = record.displayName
                 attributes.contentDescription = "\(record.symbol) · :\(record.shortcodes.first ?? record.name): · Return to copy"
                 attributes.containerTitle = "Spotlight Emoji"
@@ -155,7 +169,7 @@ final class EmojiIndex: ObservableObject {
                     status = "Added \(offset + 1) of \(EmojiCatalog.records.count) emoji…"
                 }
             }
-            UserDefaults.standard.set(6, forKey: "catalogVersion")
+            UserDefaults.standard.set(7, forKey: "catalogVersion")
             let matches = try await verifySearch()
             status = matches > 0
                 ? "Ready · \(EmojiCatalog.records.count) emoji · Search verified"
@@ -189,6 +203,7 @@ enum EmojiClipboard {
     static func copy(_ record: EmojiRecord, source: String = "app-window") {
         NSPasteboard.general.clearContents()
         let success = NSPasteboard.general.setString(record.symbol, forType: .string)
+        if success { EmojiIndex.recordUse(of: record, at: Date()) }
         UserDefaults.standard.set(record.symbol, forKey: "lastCopiedEmoji")
         UserDefaults.standard.set(source, forKey: "lastCopySource")
         UserDefaults.standard.set(success, forKey: "lastCopySucceeded")
@@ -382,6 +397,20 @@ struct EmojiSearchView: View {
 struct SpotlightEmojiApp: App {
     @NSApplicationDelegateAdaptor(EmojiAppDelegate.self) private var appDelegate
     init() {
+        if CommandLine.arguments.contains("--inspect-ranking") {
+            let context = CSSearchQueryContext()
+            context.fetchAttributes = ["title", "alternateNames", "lastUsedDate"]
+            let query = CSSearchQuery(queryString: #"title == "Heart"cd || title == "palm tree"cd"#, queryContext: context)
+            query.foundItemsHandler = { items in
+                for item in items {
+                    let attrs = item.attributeSet
+                    print(attrs.title ?? "?", attrs.alternateNames ?? [], attrs.lastUsedDate?.description ?? "unused")
+                }
+            }
+            query.completionHandler = { error in exit(error == nil ? 0 : 1) }
+            query.start()
+            RunLoop.main.run()
+        }
         if CommandLine.arguments.contains("--check-search") {
             let cases = [("pray", "🙏"), ("peach", "🍑"), (":peach:", "🍑"), ("fingers crossed", "🤞"), ("hjerte", "❤️"), ("thumbs up", "👍"), ("lol", "😂"), (":heart", "❤️"), (":heart:", "❤️"), (":pray:", "🙏"), (":thumbs_up:", "👍"), (":fingers_crossed:", "🤞")]
             for (query, expected) in cases {

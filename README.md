@@ -49,7 +49,7 @@ Spotlight may label the result action **Open**. The helper handles that native s
 
 Shortcode aliases such as `:heart`, `:heart:` and `:thumbs_up:` are included in the Spotlight index and supported in the native picker. The colon is a search alias, not a system-wide mode switch: Spotlight does not expose a public API for an app to claim all `:` queries.
 
-Spotlight controls the order of mixed results. The app supplies ranking hints, but cannot guarantee an emoji will outrank a website, message, or app. Use Spotlight’s **Spotlight Emoji** filter when you want only emoji results.
+Spotlight controls the order of mixed results. Shortcodes are indexed as alternate names. After a successful copy, the app updates that emoji’s last-used date locally so Spotlight can take recent use into account. macOS decides whether an emoji appears above a website, message, or app. Use Spotlight’s **Spotlight Emoji** filter when you want only emoji results.
 
 ## Install from source
 
