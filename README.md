@@ -25,7 +25,7 @@ Native emoji search for macOS Spotlight, with a small SwiftUI picker when you wa
 | :--- | :---: |
 | `fingers crossed` | 🤞 |
 | `pray` | 🙏 |
-| `heart` or `hjerte` | ❤️ |
+| `heart`, `:heart:` or `hjerte` | ❤️ |
 | `thumbs up` | 👍 |
 | `lol` | 😂 |
 
@@ -38,6 +38,8 @@ Spotlight may label the result action **Open**. The helper handles that native s
 - **English and Norwegian search.** CLDR keywords plus familiar aliases such as “fingers crossed” and “pray.”
 - **A native picker.** Open Spotlight Emoji itself to search, navigate with **↑ / ↓**, and press **Return** to copy. Copy buttons and double-click work too.
 - **Works offline.** The emoji catalog is bundled. No accounts, runtime network requests, or analytics.
+
+Shortcode aliases such as `:heart`, `:heart:` and `:thumbs_up:` are included in the Spotlight index and supported in the native picker. The colon is a search alias, not a system-wide mode switch: Spotlight does not expose a public API for an app to claim all `:` queries.
 
 Spotlight controls the order of mixed results. The app supplies ranking hints, but cannot guarantee an emoji will outrank a website, message, or app. Use Spotlight’s **Spotlight Emoji** filter when you want only emoji results.
 
@@ -85,3 +87,7 @@ open "$HOME/Applications/Spotlight Emoji.app"
 ## License and data
 
 Code: [MIT](LICENSE). Emoji names, sequences, and keyword data: [Unicode License](UNICODE-LICENSE.txt). See [data sources](DATA-SOURCES.md).
+
+## Inspiration
+
+[Spotmoji](https://github.com/omarshahine/spotmoji) demonstrates the native Core Spotlight approach and searchable shortcode metadata.

@@ -10,7 +10,13 @@ struct EmojiRecord: Codable, Sendable {
     let name: String
     let keywords: [String]
     var displayName: String { EmojiCatalog.titles[symbol] ?? name }
-    var searchTerms: [String] { keywords + (EmojiCatalog.aliases[symbol] ?? []) + [name, displayName, symbol] }
+    var shortcodes: [String] {
+        let names = [name, displayName] + (EmojiCatalog.aliases[symbol] ?? [])
+        return Array(Set(names.map { value in
+            value.lowercased().split(whereSeparator: { !$0.isLetter && !$0.isNumber }).joined(separator: "_")
+        }.filter { !$0.isEmpty })).sorted()
+    }
+    var searchTerms: [String] { keywords + (EmojiCatalog.aliases[symbol] ?? []) + [name, displayName, symbol] + shortcodes.flatMap { [$0, ":" + $0, ":" + $0 + ":"] } }
 }
 
 enum EmojiCatalog {
@@ -32,6 +38,8 @@ enum EmojiCatalog {
     static let byID = Dictionary(uniqueKeysWithValues: records.map { ($0.id, $0) })
     static func search(_ text: String) -> [EmojiRecord] {
         let query = text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current).trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: ":"))
+            .replacingOccurrences(of: "_", with: " ")
         if query.isEmpty {
             let favorites = ["😀", "😂", "❤️", "👍", "🎉", "🔥", "🙏", "✅", "🏠", "🚀", "👀", "😊"]
             return favorites.compactMap { symbol in records.first { $0.symbol == symbol } }
@@ -128,7 +136,7 @@ final class EmojiIndex: ObservableObject {
         }
     }
     func update() async {
-        if UserDefaults.standard.integer(forKey: "catalogVersion") == 4 {
+        if UserDefaults.standard.integer(forKey: "catalogVersion") == 5 {
             status = "\(EmojiCatalog.records.count) emoji · Also searchable in Spotlight"
             return
         }
@@ -138,10 +146,12 @@ final class EmojiIndex: ObservableObject {
                 let attributes = CSSearchableItemAttributeSet(contentType: .text)
                 attributes.title = record.displayName
                 attributes.displayName = record.displayName
-                attributes.contentDescription = "\(record.symbol) · Emoji · Select to copy"
+                attributes.contentDescription = "\(record.symbol) · :\(record.shortcodes.first ?? record.name): · Return to copy"
+                attributes.containerTitle = "Spotlight Emoji"
+                attributes.kind = "Emoji"
                 attributes.keywords = record.searchTerms + ["emoji"]
                 attributes.thumbnailData = Self.thumbnail(record.symbol)
-                attributes.textContent = record.symbol
+                attributes.textContent = record.searchTerms.joined(separator: " ")
                 attributes.rankingHint = EmojiCatalog.titles[record.symbol] != nil ? 100 : record.name.contains("skin tone") ? 5 : 70
                 let priority = EmojiCatalog.titles[record.symbol] != nil ? 100 : record.name.contains("skin tone") ? 1 : 10
                 attributes.associateAppEntity(EmojiEntity(id: record.id), priority: priority)
@@ -154,7 +164,7 @@ final class EmojiIndex: ObservableObject {
                     status = "Added \(offset + 1) of \(EmojiCatalog.records.count) emoji…"
                 }
             }
-            UserDefaults.standard.set(4, forKey: "catalogVersion")
+            UserDefaults.standard.set(5, forKey: "catalogVersion")
             let matches = try await verifySearch()
             status = matches > 0
                 ? "Ready · \(EmojiCatalog.records.count) emoji · Search verified"
@@ -229,7 +239,7 @@ struct EmojiSearchView: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField("Search emoji — smile, pray, hjerte…", text: $search)
+                TextField("Search emoji — :heart:, pray, hjerte…", text: $search)
                     .textFieldStyle(.plain).font(.title3)
                     .focused($searchFocused)
                     .accessibilityLabel("Search emoji")
@@ -295,7 +305,7 @@ struct SpotlightEmojiApp: App {
     @StateObject private var index = EmojiIndex()
     init() {
         if CommandLine.arguments.contains("--check-search") {
-            let cases = [("pray", "🙏"), ("fingers crossed", "🤞"), ("hjerte", "❤️"), ("thumbs up", "👍"), ("lol", "😂")]
+            let cases = [("pray", "🙏"), ("fingers crossed", "🤞"), ("hjerte", "❤️"), ("thumbs up", "👍"), ("lol", "😂"), (":heart", "❤️"), (":heart:", "❤️"), (":pray:", "🙏"), (":thumbs_up:", "👍"), (":fingers_crossed:", "🤞")]
             for (query, expected) in cases {
                 let actual = EmojiCatalog.search(query).first?.symbol
                 guard actual == expected else { print("FAIL \(query): \(actual ?? "nil")"); exit(1) }
