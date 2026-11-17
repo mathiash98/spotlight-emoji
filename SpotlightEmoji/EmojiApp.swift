@@ -57,7 +57,7 @@ enum EmojiCatalog {
     }
 }
 
-struct EmojiEntity: IndexedEntity {
+struct EmojiEntity: AppEntity {
     static var typeDisplayRepresentation: TypeDisplayRepresentation = "Emoji"
     static var defaultQuery = EmojiQuery()
     var id: String
@@ -94,19 +94,6 @@ struct CopyEmojiIntent: AppIntent {
 }
 enum EmojiError: Error { case notFound }
 
-struct OpenEmojiIntent: OpenIntent {
-    static var title: LocalizedStringResource = "Copy Emoji Result"
-    static var supportedModes: IntentModes = .foreground(.immediate)
-    @Parameter(title: "Emoji") var target: EmojiEntity
-    static var parameterSummary: some ParameterSummary { Summary("Copy \(\.$target)") }
-    @MainActor
-    func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard let record = EmojiCatalog.byID[target.id] else { throw EmojiError.notFound }
-        await EmojiClipboard.copySpotlightResult(record, source: "spotlight-intent")
-        return .result(dialog: "Copied \(record.symbol). Paste with Command-V.")
-    }
-}
-
 @MainActor
 final class EmojiIndex: ObservableObject {
     @Published var status = "Adding emoji to Spotlight…"
@@ -135,11 +122,14 @@ final class EmojiIndex: ObservableObject {
         }
     }
     func update() async {
-        if UserDefaults.standard.integer(forKey: "catalogVersion") == 5 {
+        if UserDefaults.standard.integer(forKey: "catalogVersion") == 6 {
             status = "\(EmojiCatalog.records.count) emoji · Also searchable in Spotlight"
             return
         }
         do {
+            // Remove prior entity associations, not just their visible attributes.
+            // Every indexed result now activates through the same native user activity.
+            try await Self.index.deleteSearchableItems(withDomainIdentifiers: [Self.domain])
             var batch: [CSSearchableItem] = []
             for (offset, record) in EmojiCatalog.records.enumerated() {
                 let attributes = CSSearchableItemAttributeSet(contentType: .text)
@@ -152,8 +142,6 @@ final class EmojiIndex: ObservableObject {
                 attributes.thumbnailData = Self.thumbnail(record.symbol)
                 attributes.textContent = record.searchTerms.joined(separator: " ")
                 attributes.rankingHint = EmojiCatalog.titles[record.symbol] != nil ? 100 : record.name.contains("skin tone") ? 5 : 70
-                let priority = EmojiCatalog.titles[record.symbol] != nil ? 100 : record.name.contains("skin tone") ? 1 : 10
-                attributes.associateAppEntity(EmojiEntity(id: record.id), priority: priority)
                 let item = CSSearchableItem(uniqueIdentifier: record.id, domainIdentifier: Self.domain, attributeSet: attributes)
                 item.expirationDate = .distantFuture
                 batch.append(item)
@@ -163,7 +151,7 @@ final class EmojiIndex: ObservableObject {
                     status = "Added \(offset + 1) of \(EmojiCatalog.records.count) emoji…"
                 }
             }
-            UserDefaults.standard.set(5, forKey: "catalogVersion")
+            UserDefaults.standard.set(6, forKey: "catalogVersion")
             let matches = try await verifySearch()
             status = matches > 0
                 ? "Ready · \(EmojiCatalog.records.count) emoji · Search verified"
@@ -341,7 +329,7 @@ struct SpotlightEmojiApp: App {
     @StateObject private var index = EmojiIndex()
     init() {
         if CommandLine.arguments.contains("--check-search") {
-            let cases = [("pray", "🙏"), ("fingers crossed", "🤞"), ("hjerte", "❤️"), ("thumbs up", "👍"), ("lol", "😂"), (":heart", "❤️"), (":heart:", "❤️"), (":pray:", "🙏"), (":thumbs_up:", "👍"), (":fingers_crossed:", "🤞")]
+            let cases = [("pray", "🙏"), ("peach", "🍑"), (":peach:", "🍑"), ("fingers crossed", "🤞"), ("hjerte", "❤️"), ("thumbs up", "👍"), ("lol", "😂"), (":heart", "❤️"), (":heart:", "❤️"), (":pray:", "🙏"), (":thumbs_up:", "👍"), (":fingers_crossed:", "🤞")]
             for (query, expected) in cases {
                 let actual = EmojiCatalog.search(query).first?.symbol
                 guard actual == expected else { print("FAIL \(query): \(actual ?? "nil")"); exit(1) }

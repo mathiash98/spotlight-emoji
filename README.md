@@ -22,7 +22,7 @@ Native emoji search for macOS Spotlight, with a small SwiftUI picker when you wa
   <sub>The native macOS picker, captured from the running app. The banner above is promotional artwork.</sub>
 </p>
 
-> **Spotlight activation status:** Enter-to-copy works in the app picker. An intermittent failure when opening results from macOS Spotlight is under investigation; the latest build includes continuation handling, installation registration fixes, and a short post-dismissal copy delay, pending desktop confirmation.
+> **Spotlight activation status:** Enter-to-copy works in the app picker. An intermittent failure when opening results from macOS Spotlight is under investigation; the latest build rebuilds emoji as plain Core Spotlight items with a single native activation route, pending desktop confirmation.
 
 ## Search. Select. Copy.
 
@@ -69,7 +69,7 @@ There is no notarized download yet; build locally with Xcode.
 
 ## How it works
 
-A **Core Spotlight** index contains the emoji names, keywords, and thumbnails. **App Intents** describe the emoji entities and copy actions. Native Spotlight selections are handled through both the open intent and the application’s user-activity callback.
+A **Core Spotlight** index contains the emoji names, keywords, and thumbnails. **App Intents** provide a separate Copy Emoji shortcut. Indexed results deliberately use plain Core Spotlight items: selecting one reaches the application’s user-activity callback, which copies the emoji. The index is rebuilt when migrating from older entity-associated results so stale Open actions are removed.
 
 The app writes to the clipboard only when you select a copy action. It does not read your existing clipboard, and it does not change Spotlight’s keyboard shortcut or install a File Provider.
 
