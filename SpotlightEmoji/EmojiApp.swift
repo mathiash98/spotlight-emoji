@@ -97,6 +97,7 @@ enum EmojiError: Error { case notFound }
 @MainActor
 final class EmojiIndex: ObservableObject {
     @Published var status = "Adding emoji to Spotlight…"
+    private var isUpdating = false
     static let index = CSSearchableIndex(name: "SpotlightEmojiCatalog")
     static let domain = "no.mathias.SpotlightEmoji.catalog"
     static func thumbnail(_ symbol: String) -> Data? {
@@ -122,6 +123,9 @@ final class EmojiIndex: ObservableObject {
         }
     }
     func update() async {
+        guard !isUpdating else { return }
+        isUpdating = true
+        defer { isUpdating = false }
         if UserDefaults.standard.integer(forKey: "catalogVersion") == 6 {
             status = "\(EmojiCatalog.records.count) emoji · Also searchable in Spotlight"
             return
@@ -203,10 +207,63 @@ enum EmojiClipboard {
 
 @MainActor
 final class EmojiAppDelegate: NSObject, NSApplicationDelegate {
+    let index = EmojiIndex()
+    private var pickerWindow: NSWindow?
+    private var pendingPicker: Task<Void, Never>?
+    private var receivedSpotlightActivity = false
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        Task { await index.update() }
+        if !receivedSpotlightActivity { schedulePicker() }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        schedulePicker()
+        return false
+    }
+
+    private func schedulePicker() {
+        pendingPicker?.cancel()
+        pendingPicker = Task { @MainActor in
+            // LaunchServices may send a reopen event before the Spotlight activity.
+            // Wait with no window on screen so that the activity can cancel this.
+            do { try await Task.sleep(for: .milliseconds(400)) } catch { return }
+            showPicker()
+        }
+    }
+
+    private func showPicker() {
+        if pickerWindow == nil {
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 520),
+                                  styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                                  backing: .buffered, defer: false)
+            window.title = "Spotlight Emoji"
+            window.isReleasedWhenClosed = false
+            window.isRestorable = false
+            window.contentView = NSHostingView(rootView: EmojiSearchView(index: index))
+            window.center()
+            pickerWindow = window
+        }
+        NSApp.setActivationPolicy(.regular)
+        pickerWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func prepareForSpotlight() {
+        receivedSpotlightActivity = true
+        pendingPicker?.cancel()
+        pendingPicker = nil
+        for window in NSApp.windows where window.title == "Spotlight Emoji" {
+            window.orderOut(nil)
+        }
+        NSApp.setActivationPolicy(.accessory)
+    }
+
     func application(_ application: NSApplication,
                      willContinueUserActivityWithType userActivityType: String) -> Bool {
         let supported = userActivityType == CSSearchableItemActionType
         if supported {
+            prepareForSpotlight()
             UserDefaults.standard.set(Date(), forKey: "lastSpotlightContinuationDate")
         }
         return supported
@@ -220,10 +277,11 @@ final class EmojiAppDelegate: NSObject, NSApplicationDelegate {
 
     func application(_ application: NSApplication, continue userActivity: NSUserActivity,
                      restorationHandler: @escaping ([any NSUserActivityRestoring]) -> Void) -> Bool {
-        Self.handle(userActivity)
+        handle(userActivity)
     }
-    static func handle(_ activity: NSUserActivity) -> Bool {
+    func handle(_ activity: NSUserActivity) -> Bool {
         guard activity.activityType == CSSearchableItemActionType else { return false }
+        prepareForSpotlight()
         UserDefaults.standard.set(Date(), forKey: "lastSpotlightActivityDate")
         guard let id = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String,
               let record = EmojiCatalog.byID[id] else {
@@ -317,16 +375,12 @@ struct EmojiSearchView: View {
         .onAppear { selection = results.first?.id; searchFocused = true }
         .onChange(of: search) { _, _ in selection = results.first?.id; copied = nil }
         .task { await index.update() }
-        .onContinueUserActivity(CSSearchableItemActionType) { activity in
-            _ = EmojiAppDelegate.handle(activity)
-        }
     }
 }
 
 @main
 struct SpotlightEmojiApp: App {
     @NSApplicationDelegateAdaptor(EmojiAppDelegate.self) private var appDelegate
-    @StateObject private var index = EmojiIndex()
     init() {
         if CommandLine.arguments.contains("--check-search") {
             let cases = [("pray", "🙏"), ("peach", "🍑"), (":peach:", "🍑"), ("fingers crossed", "🤞"), ("hjerte", "❤️"), ("thumbs up", "👍"), ("lol", "😂"), (":heart", "❤️"), (":heart:", "❤️"), (":pray:", "🙏"), (":thumbs_up:", "👍"), (":fingers_crossed:", "🤞")]
@@ -343,7 +397,9 @@ struct SpotlightEmojiApp: App {
         EmojiShortcuts.updateAppShortcutParameters()
     }
     var body: some Scene {
-        WindowGroup("Spotlight Emoji") { EmojiSearchView(index: index) }
+        WindowGroup("Spotlight Emoji") { EmojiSearchView(index: appDelegate.index) }
             .defaultSize(width: 560, height: 520)
+            .defaultLaunchBehavior(.suppressed)
+            .restorationBehavior(.disabled)
     }
 }

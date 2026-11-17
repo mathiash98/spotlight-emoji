@@ -22,8 +22,6 @@ Native emoji search for macOS Spotlight, with a small SwiftUI picker when you wa
   <sub>The native macOS picker, captured from the running app. The banner above is promotional artwork.</sub>
 </p>
 
-> **Spotlight activation status:** Enter-to-copy works in the app picker. An intermittent failure when opening results from macOS Spotlight is under investigation; the latest build rebuilds emoji as plain Core Spotlight items with a single native activation route, pending desktop confirmation.
-
 ## Search. Select. Copy.
 
 1. Open Spotlight with **⌘ Space**.
@@ -39,7 +37,7 @@ Native emoji search for macOS Spotlight, with a small SwiftUI picker when you wa
 | `thumbs up` | 👍 |
 | `lol` | 😂 |
 
-Spotlight may label the result action **Open**. The helper handles that native selection by copying the emoji.
+Spotlight may label the result action **Open**. The helper handles that native selection by copying the emoji in the background. The picker opens only when you launch the app itself; Spotlight selections suppress automatic window presentation and restoration.
 
 ## What you get
 
