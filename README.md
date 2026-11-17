@@ -17,7 +17,7 @@ Native emoji search for macOS Spotlight, with a small SwiftUI picker when you wa
 </div>
 
 <p align="center">
-  <img src="docs/images/picker.png" alt="Actual Spotlight Emoji app showing colon-style heart search and emoji results in dark mode." width="560">
+  <img src="docs/images/picker.jpg" alt="Actual Spotlight Emoji app showing colon-style heart search and emoji results in dark mode." width="560">
   <br>
   <sub>The native macOS picker, captured from the running app. The banner above is promotional artwork.</sub>
 </p>

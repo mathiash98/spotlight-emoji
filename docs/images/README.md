@@ -1,6 +1,6 @@
 # README visuals
 
-- `picker.png`: unmodified window screenshot of the running Spotlight Emoji app, captured on macOS with the query `:heart`. It is the standalone picker, not the system Spotlight window.
+- `picker.jpg`: unmodified window screenshot of the running Spotlight Emoji app, captured on macOS with the query `:heart`. It is the standalone picker, not the system Spotlight window.
 - `banner.png`: promotional artwork generated with the built-in image generation tool. It does not depict application UI.
 
 ## Banner prompt
