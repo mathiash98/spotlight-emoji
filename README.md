@@ -22,7 +22,7 @@ Native emoji search for macOS Spotlight, with a small SwiftUI picker when you wa
   <sub>The native macOS picker, captured from the running app. The banner above is promotional artwork.</sub>
 </p>
 
-> **Spotlight activation status:** Enter-to-copy works in the app picker. An intermittent failure when opening results from macOS Spotlight is under investigation; the latest build includes continuation handling and installation registration fixes, pending desktop confirmation.
+> **Spotlight activation status:** Enter-to-copy works in the app picker. An intermittent failure when opening results from macOS Spotlight is under investigation; the latest build includes continuation handling, installation registration fixes, and a short post-dismissal copy delay, pending desktop confirmation.
 
 ## Search. Select. Copy.
 

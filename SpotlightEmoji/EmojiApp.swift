@@ -102,8 +102,7 @@ struct OpenEmojiIntent: OpenIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard let record = EmojiCatalog.byID[target.id] else { throw EmojiError.notFound }
-        EmojiClipboard.copy(record, source: "spotlight-intent")
-        NSApplication.shared.hide(nil)
+        await EmojiClipboard.copySpotlightResult(record, source: "spotlight-intent")
         return .result(dialog: "Copied \(record.symbol). Paste with Command-V.")
     }
 }
@@ -187,6 +186,14 @@ struct EmojiShortcuts: AppShortcutsProvider {
 
 @MainActor
 enum EmojiClipboard {
+    // Spotlight can still be dismissing its result UI when continuation arrives.
+    // Finish that transition before publishing the selected emoji to the pasteboard.
+    static func copySpotlightResult(_ record: EmojiRecord, source: String) async {
+        NSApplication.shared.hide(nil)
+        try? await Task.sleep(for: .milliseconds(250))
+        copy(record, source: source)
+    }
+
     static func copy(_ record: EmojiRecord, source: String = "app-window") {
         NSPasteboard.general.clearContents()
         let success = NSPasteboard.general.setString(record.symbol, forType: .string)
@@ -194,6 +201,14 @@ enum EmojiClipboard {
         UserDefaults.standard.set(source, forKey: "lastCopySource")
         UserDefaults.standard.set(success, forKey: "lastCopySucceeded")
         UserDefaults.standard.set(Date(), forKey: "lastCopyDate")
+        let count = NSPasteboard.general.changeCount
+        UserDefaults.standard.set(count, forKey: "lastCopyChangeCount")
+        // Observe only the counter, never the user's clipboard contents.
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1))
+            guard UserDefaults.standard.integer(forKey: "lastCopyChangeCount") == count else { return }
+            UserDefaults.standard.set(NSPasteboard.general.changeCount, forKey: "pasteboardChangeCountAfterOneSecond")
+        }
     }
 }
 
@@ -228,8 +243,9 @@ final class EmojiAppDelegate: NSObject, NSApplicationDelegate {
             return false
         }
         UserDefaults.standard.removeObject(forKey: "lastSpotlightContinuationError")
-        EmojiClipboard.copy(record, source: "spotlight-activity")
-        NSApplication.shared.hide(nil)
+        Task { @MainActor in
+            await EmojiClipboard.copySpotlightResult(record, source: "spotlight-activity")
+        }
         return true
     }
 }
