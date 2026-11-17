@@ -1,10 +1,12 @@
+<p align="center">
+  <img src="docs/images/banner.png" alt="Spotlight Emoji — Find your next expression. Native macOS, offline and open source." width="100%">
+</p>
+
 <div align="center">
 
 # Spotlight Emoji
 
 **Find an emoji where you already search.**
-
-🤞 &nbsp; 🙏 &nbsp; ❤️ &nbsp; 🎉 &nbsp; 👀
 
 Native emoji search for macOS Spotlight, with a small SwiftUI picker when you want one.
 
@@ -13,6 +15,14 @@ Native emoji search for macOS Spotlight, with a small SwiftUI picker when you wa
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 </div>
+
+<p align="center">
+  <img src="docs/images/picker.png" alt="Actual Spotlight Emoji app showing colon-style heart search and emoji results in dark mode." width="560">
+  <br>
+  <sub>The native macOS picker, captured from the running app. The banner above is promotional artwork.</sub>
+</p>
+
+> **Spotlight activation status:** Enter-to-copy works in the app picker. An intermittent failure when opening results from macOS Spotlight is under investigation; the latest build includes continuation handling and installation registration fixes, pending desktop confirmation.
 
 ## Search. Select. Copy.
 

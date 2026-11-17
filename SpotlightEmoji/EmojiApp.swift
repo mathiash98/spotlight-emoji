@@ -200,14 +200,34 @@ enum EmojiClipboard {
 
 @MainActor
 final class EmojiAppDelegate: NSObject, NSApplicationDelegate {
+    func application(_ application: NSApplication,
+                     willContinueUserActivityWithType userActivityType: String) -> Bool {
+        let supported = userActivityType == CSSearchableItemActionType
+        if supported {
+            UserDefaults.standard.set(Date(), forKey: "lastSpotlightContinuationDate")
+        }
+        return supported
+    }
+
+    func application(_ application: NSApplication,
+                     didFailToContinueUserActivityWithType userActivityType: String, error: any Error) {
+        guard userActivityType == CSSearchableItemActionType else { return }
+        UserDefaults.standard.set(error.localizedDescription, forKey: "lastSpotlightContinuationError")
+    }
+
     func application(_ application: NSApplication, continue userActivity: NSUserActivity,
                      restorationHandler: @escaping ([any NSUserActivityRestoring]) -> Void) -> Bool {
         Self.handle(userActivity)
     }
     static func handle(_ activity: NSUserActivity) -> Bool {
-        guard activity.activityType == CSSearchableItemActionType,
-              let id = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String,
-              let record = EmojiCatalog.byID[id] else { return false }
+        guard activity.activityType == CSSearchableItemActionType else { return false }
+        UserDefaults.standard.set(Date(), forKey: "lastSpotlightActivityDate")
+        guard let id = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String,
+              let record = EmojiCatalog.byID[id] else {
+            UserDefaults.standard.set("Emoji result identifier was missing or no longer exists.", forKey: "lastSpotlightContinuationError")
+            return false
+        }
+        UserDefaults.standard.removeObject(forKey: "lastSpotlightContinuationError")
         EmojiClipboard.copy(record, source: "spotlight-activity")
         NSApplication.shared.hide(nil)
         return true
