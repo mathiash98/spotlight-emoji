@@ -1,0 +1,2 @@
+# Spotlight Emoji
+Personal native macOS utility. SwiftUI and App Intents, macOS 26+. Keep actions in Spotlight and execute in the background. No network at runtime, telemetry, permission prompts, or clipboard reads. Use Unicode emoji and CLDR keyword data with its license. Preserve the user's clipboard unless they explicitly run Copy Emoji. Validate search and action metadata before installing; verify the Spotlight flow through UI.
